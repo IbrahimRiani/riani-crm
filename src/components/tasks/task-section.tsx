@@ -51,7 +51,7 @@ export function TaskSection({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-neutral-900">{title} ({tasks.length})</h2>
+        <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{title} ({tasks.length})</h2>
         <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Nueva
         </Button>
@@ -95,7 +95,7 @@ export function TaskSection({
             <Label htmlFor="nt-desc">Descripción</Label>
             <Textarea id="nt-desc" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
             <Button onClick={save} disabled={pending || !form.title.trim()}>

@@ -31,18 +31,18 @@ function Card({ lead }: { lead: Lead }) {
       {...listeners}
       {...attributes}
       onClick={() => router.push(`/leads/${lead.id}`)}
-      className={`cursor-grab rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-shadow hover:shadow active:cursor-grabbing ${
+      className={`cursor-grab rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-shadow hover:shadow active:cursor-grabbing dark:border-neutral-700 dark:bg-neutral-900 ${
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <p className="text-sm font-semibold text-neutral-900">{lead.company_name}</p>
-      <p className="text-xs text-neutral-500">{[lead.business_type, lead.city].filter(Boolean).join(" · ") || "—"}</p>
+      <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{lead.company_name}</p>
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">{[lead.business_type, lead.city].filter(Boolean).join(" · ") || "—"}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <PriorityBadge priority={lead.priority} />
-        {lead.deal_value ? <span className="text-xs font-semibold">{formatEUR(lead.deal_value)}</span> : null}
+        {lead.deal_value ? <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">{formatEUR(lead.deal_value)}</span> : null}
       </div>
       {lead.next_follow_up && (
-        <p className="mt-1 text-xs text-neutral-500">↻ {relativeDayES(lead.next_follow_up)}</p>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">↻ {relativeDayES(lead.next_follow_up)}</p>
       )}
     </div>
   );
@@ -55,14 +55,14 @@ function Column({ status, leads }: { status: LeadStatus; leads: Lead[] }) {
     <div
       ref={setNodeRef}
       className={`flex w-64 shrink-0 flex-col rounded-xl border p-2 ${
-        isOver ? "border-neutral-900 bg-neutral-100" : "border-neutral-200 bg-neutral-50"
+        isOver ? "border-neutral-900 bg-neutral-100 dark:border-white dark:bg-neutral-800" : "border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/50"
       }`}
     >
       <div className="px-2 py-1.5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
           {LEAD_STATUSES.find((s) => s.value === status)?.label}
         </p>
-        <p className="text-xs text-neutral-500">{leads.length} · {formatEUR(total)}</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">{leads.length} · {formatEUR(total)}</p>
       </div>
       <div className="min-h-24 flex-1 space-y-2">
         {leads.map((l) => (
@@ -105,7 +105,7 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
   return (
     <div>
       {error && (
-        <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{error}</p>
       )}
       <DndContext sensors={sensors} onDragStart={onStart} onDragEnd={onEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
@@ -115,8 +115,8 @@ export function PipelineBoard({ initialLeads }: { initialLeads: Lead[] }) {
         </div>
         <DragOverlay>
           {active ? (
-            <div className="w-64 rounded-xl border border-neutral-900 bg-white p-3 shadow-lg">
-              <p className="text-sm font-semibold">{active.company_name}</p>
+            <div className="w-64 rounded-xl border border-neutral-900 bg-white p-3 shadow-lg dark:border-white dark:bg-neutral-900">
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{active.company_name}</p>
             </div>
           ) : null}
         </DragOverlay>

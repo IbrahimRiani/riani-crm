@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { leadSchema } from "@/lib/validations/lead";
 import { LEAD_STATUS_LABELS } from "@/lib/constants/crm";
+import { parseLeadsCSV, MAX_IMPORT_ROWS } from "@/lib/utils/import";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -92,8 +93,7 @@ export async function deleteLead(id: string): Promise<ActionResult> {
   }
 }
 
-export async function moveLeadStatus(
-  id: string,
+export async function moveLeadStatus(  id: string,
   from: string,
   to: string,
 ): Promise<ActionResult> {
@@ -121,5 +121,74 @@ export async function moveLeadStatus(
   } catch (e) {
     console.error("[moveLeadStatus]", e);
     return { ok: false, error: "No se pudo mover el lead. Inténtalo de nuevo." };
+  }
+}
+
+export interface ImportSummary {
+  imported: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+}
+
+export async function importLeadsFromCSV(
+  text: unknown,
+): Promise<{ ok: true; summary: ImportSummary } | { ok: false; error: string }> {
+  try {
+    if (typeof text !== "string" || text.trim() === "") {
+      return { ok: false, error: "El archivo está vacío." };
+    }
+    if (text.length > 500_000) {
+      return { ok: false, error: "El archivo es demasiado grande (máx. ~500 filas por importación)." };
+    }
+    const { rows, errors } = parseLeadsCSV(text);
+    if (rows.length === 0 && errors.length > 0 && errors[0].row <= 1) {
+      return { ok: false, error: errors[0].message };
+    }
+    if (rows.length + errors.length > MAX_IMPORT_ROWS) {
+      return {
+        ok: false,
+        error: `Demasiadas filas (máx. ${MAX_IMPORT_ROWS} por importación). Divide el archivo.`,
+      };
+    }
+
+    const { supabase, user } = await requireUser();
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("company_name, phone, whatsapp, email, website");
+
+    const seen = new Set(
+      (existing ?? []).map((l) =>
+        `${(l.company_name ?? "").toLowerCase().trim()}|${(l.phone ?? "").replace(/\D/g, "")}|${(l.email ?? "").toLowerCase().trim()}`,
+      ),
+    );
+
+    const toInsert: Record<string, unknown>[] = [];
+    let skipped = 0;
+    for (const r of rows) {
+      const d = r.data as Record<string, string | number | null>;
+      const key = `${String(d.company_name ?? "").toLowerCase().trim()}|${String(d.phone ?? "").replace(/\D/g, "")}|${String(d.email ?? "").toLowerCase().trim()}`;
+      if (seen.has(key)) {
+        skipped++;
+        continue;
+      }
+      seen.add(key);
+      toInsert.push({ ...toDb(r.data), user_id: user.id });
+    }
+
+    if (toInsert.length > 0) {
+      const { error } = await supabase.from("leads").insert(toInsert);
+      if (error) {
+        console.error("[importLeadsFromCSV]", error);
+        return { ok: false, error: "No se pudo importar. Inténtalo de nuevo." };
+      }
+    }
+
+    revalidatePath("/leads");
+    revalidatePath("/dashboard");
+    revalidatePath("/pipeline");
+    return { ok: true, summary: { imported: toInsert.length, skipped, errors } };
+  } catch (e) {
+    console.error("[importLeadsFromCSV]", e);
+    return { ok: false, error: "No se pudo importar. Inténtalo de nuevo." };
   }
 }

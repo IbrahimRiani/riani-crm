@@ -50,27 +50,27 @@ export function TaskItem({ task }: { task: TaskWithLead }) {
   }
 
   return (
-    <div className={cn("flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4", task.completed && "opacity-60")}>
+    <div className={cn("flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900", task.completed && "opacity-60")}>
       <button
         onClick={toggle}
         disabled={pending}
         aria-label={task.completed ? "Marcar como pendiente" : "Marcar como completada"}
         className={cn(
           "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
-          task.completed ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 hover:border-neutral-900",
+          task.completed ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-300 hover:border-neutral-900 dark:border-neutral-600 dark:hover:border-white",
         )}
       >
         {task.completed && <Check className="h-3.5 w-3.5" />}
       </button>
       <div className="min-w-0 flex-1">
-        <p className={cn("text-sm font-medium", task.completed && "line-through")}>{task.title}</p>
+        <p className={cn("text-sm font-medium text-neutral-900 dark:text-neutral-100", task.completed && "line-through")}>{task.title}</p>
         {task.leads && (
-          <Link href={`/leads/${task.leads.id}`} className="text-xs text-neutral-500 hover:text-neutral-900 hover:underline">
+          <Link href={`/leads/${task.leads.id}`} className="text-xs text-neutral-500 hover:text-neutral-900 hover:underline dark:text-neutral-400 dark:hover:text-neutral-100">
             {task.leads.company_name}
           </Link>
         )}
-        {task.description && <p className="mt-0.5 text-xs text-neutral-500">{task.description}</p>}
-        <p className="mt-1 text-xs font-medium text-neutral-600">{relativeDayES(task.due_date)}</p>
+        {task.description && <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{task.description}</p>}
+        <p className="mt-1 text-xs font-medium text-neutral-600 dark:text-neutral-300">{relativeDayES(task.due_date)}</p>
       </div>
       <div className="flex shrink-0 gap-1">
         <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)} aria-label="Editar tarea">

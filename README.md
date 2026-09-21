@@ -46,7 +46,7 @@ Al eliminar un lead se eliminan en cascada sus actividades y tareas.
 npm run dev     # http://localhost:3000
 npm run lint    # eslint
 npm run build   # build de producción
-npm test        # vitest (validaciones, whatsapp, CSV)
+npm test        # vitest (validaciones, whatsapp, CSV, importación, tema)
 ```
 
 > Nota: el entorno actual usa Node 20.11. Supabase JS recomienda Node ≥ 22.
@@ -69,20 +69,44 @@ npm start
 ## Estructura
 
 ```text
-src/app/(auth)/login        login
-src/app/(dashboard)/        dashboard, leads, leads/[id], pipeline, tasks, settings
-src/app/page.tsx            redirección según sesión
-src/middleware.ts           refresco de sesión + protección de rutas
-src/components/ui          Button, form, badges, card, dialog, states
-src/components/leads       formulario, explorer (tabla+filtros+CSV), acciones, timeline
-src/components/pipeline    Kanban dnd-kit
-src/components/tasks       TaskItem, TaskSection
-src/lib/supabase           client (browser), server, middleware, admin
-src/lib/actions            server actions: leads, activities, tasks, auth
-src/lib/validations        zod: lead, activity, task (+ tests)
-src/lib/utils              format (EUR, fechas es-ES), whatsapp, csv
-supabase/migrations        SQL + RLS
+src/app/(auth)/login,signup   login y registro
+src/app/(dashboard)/          dashboard, leads, leads/[id], pipeline, tasks, settings
+src/app/page.tsx              redirección según sesión
+src/proxy.ts                  refresco de sesión + protección de rutas (Next 16)
+src/components/ui            Button, form, badges, card, dialog, states
+src/components/layout        sidebar, header, theme-toggle
+src/components/leads         formulario, explorer (tabla+filtros+CSV+import), acciones, timeline
+src/components/pipeline      Kanban dnd-kit
+src/components/tasks         TaskItem, TaskSection
+src/lib/supabase             client (browser), server, middleware, admin
+src/lib/actions              server actions: leads (+import), activities, tasks, auth
+src/lib/validations          zod: lead, activity, task (+ tests)
+src/lib/utils                format (EUR, fechas es-ES), whatsapp, csv, import (+ tests)
+src/lib/theme                tema claro/oscuro persistente (+ tests)
+supabase/migrations          SQL + RLS
 ```
+
+## Importar leads (CSV/TXT)
+
+Leads → **Importar**. Vale cualquier `.csv` o `.txt` con este formato
+(separador `;`, UTF-8, primera línea de cabeceras). Es el mismo formato
+que genera **CSV** al exportar, así que hay ida y vuelta:
+
+```text
+Empresa;Tipo;Contacto;Teléfono;WhatsApp;Email;Web;Ciudad;Provincia;Estado;Prioridad;Fuente;Valor;Próximo seguimiento;Notas
+Clínica Dental Sonrisa;Clínica dental;María García;600123456;600123456;info@sonrisa.com;sonrisa.com;Madrid;Madrid;Nuevo;Alta;Manual;1500;25/09/2026;Quieren automatizar citas
+```
+
+Reglas:
+
+- Solo **Empresa** es obligatoria. Columnas desconocidas se ignoran.
+- **Estado**: Nuevo, Contactado, WhatsApp enviado, Reunión, Demo, Propuesta, Ganado, Perdido (vacío → Nuevo).
+- **Prioridad**: Baja, Media, Alta (vacío → Media). **Fuente**: Manual, Lead Hunter, Referido, Web, Otro (vacío → Manual).
+- **Valor** en euros: `1500`, `1.200 €`, `2,500`. **Fecha**: `dd/mm/aaaa` o `aaaa-mm-dd`.
+- Campos con `;` entre comillas: `"nota con; punto y coma"`. También se acepta `,` como separador si la cabecera lo usa.
+- Los duplicados (misma empresa + teléfono/email) se omiten. Máx. 500 filas por importación.
+- El resultado muestra importados, omitidos y errores por número de fila.
+- Hay botón **Descargar plantilla** dentro del diálogo de importación.
 
 ## Decisiones
 

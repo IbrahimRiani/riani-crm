@@ -163,8 +163,8 @@ export function LeadActions({ lead }: { lead: Lead }) {
         </Select>
       </div>
 
-      <div className="mt-4 border-t border-neutral-100 pt-4">
-        <p className="mb-2 text-xs font-medium text-neutral-500">REGISTRAR ACTIVIDAD</p>
+      <div className="mt-4 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">REGISTRAR ACTIVIDAD</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_TYPES.map((t) => {
             const Icon = t.icon;
@@ -181,7 +181,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{error}</p>
       )}
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} title="Editar lead" wide>

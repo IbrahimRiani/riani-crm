@@ -16,8 +16,8 @@ function Row({ icon: Icon, label, value }: { icon: React.ElementType; label: str
     <div className="flex items-start gap-3 py-2">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" />
       <div className="min-w-0">
-        <p className="text-xs text-neutral-500">{label}</p>
-        <div className="truncate text-sm font-medium text-neutral-900">{value}</div>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">{label}</p>
+        <div className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{value}</div>
       </div>
     </div>
   );
@@ -39,16 +39,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <Link href="/leads" className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900">
+      <Link href="/leads" className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
         <ArrowLeft className="h-4 w-4" /> Volver a leads
       </Link>
 
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">{l.company_name}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">{l.company_name}</h1>
         <StatusBadge status={l.status} />
         <PriorityBadge priority={l.priority} />
       </div>
-      <p className="mt-1 text-sm text-neutral-500">
+      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
         {[l.business_type, l.city, l.province].filter(Boolean).join(" · ")}
       </p>
 
@@ -58,14 +58,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <LeadActions lead={l} />
           </Card>
           <div>
-            <h2 className="mb-3 text-sm font-semibold">Historial</h2>
+            <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">Historial</h2>
             <Timeline activities={(activities ?? []) as Activity[]} />
           </div>
         </div>
 
         <div className="space-y-4">
           <Card className="p-5">
-            <h2 className="mb-2 text-sm font-semibold">Información</h2>
+            <h2 className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">Información</h2>
             <Row icon={User} label="Contacto" value={l.contact_name ?? "—"} />
             <Row icon={Phone} label="Teléfono / WhatsApp" value={[l.phone, l.whatsapp].filter(Boolean).join(" · ") || "—"} />
             <Row icon={Mail} label="Email" value={l.email ?? "—"} />
@@ -73,11 +73,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <Row icon={MapPin} label="Ubicación" value={[l.city, l.province].filter(Boolean).join(", ") || "—"} />
             <Row icon={Euro} label="Valor potencial" value={formatEUR(l.deal_value)} />
             <Row icon={CalendarDays} label="Próximo seguimiento" value={formatDateES(l.next_follow_up)} />
-            <div className="pt-2 text-xs text-neutral-500">
+            <div className="pt-2 text-xs text-neutral-500 dark:text-neutral-400">
               Fuente: {LEAD_SOURCE_LABELS[l.source]} · Creado: {formatDateES(l.created_at)}
             </div>
             {l.notes && (
-              <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700">{l.notes}</div>
+              <div className="mt-3 rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">{l.notes}</div>
             )}
           </Card>
 

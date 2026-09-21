@@ -4,6 +4,7 @@ import { activitySchema } from "@/lib/validations/activity";
 import { taskSchema } from "@/lib/validations/task";
 import { normalizeWhatsapp } from "@/lib/utils/whatsapp";
 import { leadsToCSV } from "@/lib/utils/csv";
+import { resolveTheme } from "@/lib/theme/theme";
 
 describe("leadSchema", () => {
   it("rechaza sin company_name", () => {
@@ -51,6 +52,17 @@ describe("normalizeWhatsapp", () => {
   });
 });
 
+describe("resolveTheme", () => {
+  it("respeta la elección guardada", () => {
+    expect(resolveTheme("dark", false)).toBe("dark");
+    expect(resolveTheme("light", true)).toBe("light");
+  });
+  it("usa el sistema cuando no hay elección", () => {
+    expect(resolveTheme(null, true)).toBe("dark");
+    expect(resolveTheme(null, false)).toBe("light");
+    expect(resolveTheme("otro", false)).toBe("light");
+  });
+});
 describe("leadsToCSV", () => {
   it("genera cabecera + fila", () => {
     const csv = leadsToCSV([

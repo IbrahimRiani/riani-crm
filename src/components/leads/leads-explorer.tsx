@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Download, ArrowUpDown } from "lucide-react";
+import { Plus, Search, Download, ArrowUpDown, Upload } from "lucide-react";
 import type { Lead } from "@/types/crm";
 import { LEAD_STATUSES, LEAD_PRIORITIES, LEAD_SOURCES } from "@/lib/constants/crm";
 import { StatusBadge, PriorityBadge } from "@/components/ui/badges";
@@ -12,6 +12,7 @@ import { Input, Select } from "@/components/ui/form";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/states";
 import { LeadForm } from "@/components/leads/lead-form";
+import { LeadImportDialog } from "@/components/leads/import-dialog";
 import { formatEUR, relativeDayES } from "@/lib/utils/format";
 import { leadsToCSV, downloadCSV } from "@/lib/utils/csv";
 import { PageHeader } from "@/components/layout/header";
@@ -26,6 +27,7 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
   const [source, setSource] = useState("all");
   const [sort, setSort] = useState<SortKey>("created");
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -62,6 +64,9 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
         subtitle={`${filtered.length} de ${leads.length} empresas`}
         action={
           <>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Importar
+            </Button>
             <Button variant="outline" size="sm" onClick={exportCSV} disabled={filtered.length === 0}>
               <Download className="h-4 w-4" /> CSV
             </Button>
@@ -105,7 +110,7 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
           onClick={() =>
             setSort(sort === "company" ? "value" : sort === "value" ? "followup" : sort === "followup" ? "created" : "company")
           }
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-sm hover:bg-neutral-50"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-900 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
           title="Cambiar orden"
         >
           <ArrowUpDown className="h-4 w-4" />
@@ -130,10 +135,10 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
       ) : (
         <>
           {/* Desktop table */}
-          <div className="hidden overflow-x-auto rounded-xl border border-neutral-200 bg-white md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900 md:block">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-neutral-100 text-xs text-neutral-500">
+                <tr className="border-b border-neutral-100 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                   <th className="px-4 py-3 font-medium">Empresa</th>
                   <th className="px-4 py-3 font-medium">Contacto</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
@@ -146,20 +151,20 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
                 {filtered.map((l) => (
                   <tr
                     key={l.id}
-                    className="cursor-pointer border-b border-neutral-50 last:border-0 hover:bg-neutral-50"
+                    className="cursor-pointer border-b border-neutral-50 last:border-0 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800"
                     onClick={() => startTransition(() => router.push(`/leads/${l.id}`))}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-neutral-900">{l.company_name}</div>
-                      <div className="text-xs text-neutral-500">
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{l.company_name}</div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">
                         {[l.business_type, l.city].filter(Boolean).join(" · ")}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-neutral-600">{l.contact_name ?? "—"}</td>
+                    <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">{l.contact_name ?? "—"}</td>
                     <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
                     <td className="px-4 py-3"><PriorityBadge priority={l.priority} /></td>
-                    <td className="px-4 py-3 text-right font-medium">{formatEUR(l.deal_value)}</td>
-                    <td className="px-4 py-3 text-neutral-600">{relativeDayES(l.next_follow_up)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-neutral-900 dark:text-neutral-100">{formatEUR(l.deal_value)}</td>
+                    <td className="px-4 py-3 text-neutral-600 dark:text-neutral-300">{relativeDayES(l.next_follow_up)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -171,21 +176,21 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
               <Link
                 key={l.id}
                 href={`/leads/${l.id}`}
-                className="block rounded-xl border border-neutral-200 bg-white p-4"
+                className="block rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium">{l.company_name}</p>
-                    <p className="text-xs text-neutral-500">
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100">{l.company_name}</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
                       {[l.business_type, l.city].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold">{formatEUR(l.deal_value)}</span>
+                  <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{formatEUR(l.deal_value)}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusBadge status={l.status} />
                   <PriorityBadge priority={l.priority} />
-                  <span className="text-xs text-neutral-500">{relativeDayES(l.next_follow_up)}</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">{relativeDayES(l.next_follow_up)}</span>
                 </div>
               </Link>
             ))}
@@ -196,6 +201,7 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Nuevo lead" wide>
         <LeadForm onDone={() => setCreateOpen(false)} />
       </Dialog>
+      <LeadImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
