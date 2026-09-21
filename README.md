@@ -104,9 +104,15 @@ Reglas:
 - **Prioridad**: Baja, Media, Alta (vacío → Media). **Fuente**: Manual, Lead Hunter, Referido, Web, Otro (vacío → Manual).
 - **Valor** en euros: `1500`, `1.200 €`, `2,500`. **Fecha**: `dd/mm/aaaa` o `aaaa-mm-dd`.
 - Campos con `;` entre comillas: `"nota con; punto y coma"`. También se acepta `,` como separador si la cabecera lo usa.
-- Los duplicados (misma empresa + teléfono/email) se omiten. Máx. 500 filas por importación.
+- Los duplicados por teléfono se omiten: si el teléfono o WhatsApp de una fila
+  ya existe en tus leads (da igual que el nombre venga escrito distinto),
+  no se importa. También se detectan duplicados dentro del propio archivo.
+  Máx. 500 filas por importación.
 - El resultado muestra importados, omitidos y errores por número de fila.
 - Hay botón **Descargar plantilla** dentro del diálogo de importación.
+- Si ya tienes duplicados de importaciones anteriores, el mismo diálogo
+  tiene **Limpiar duplicados por teléfono**: los busca, te muestra los grupos
+  y al confirmar elimina los repetidos conservando el más antiguo de cada grupo.
 
 ## Decisiones
 

@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Download, CircleCheck, CircleAlert } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Upload, Download, CircleCheck, CircleAlert, Users } from "lucide-react";
+import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { importLeadsFromCSV, type ImportSummary } from "@/lib/actions/leads";
+import { importLeadsFromCSV, getDuplicateGroups, deleteDuplicatePhones, type ImportSummary } from "@/lib/actions/leads";
+import type { DuplicateGroup } from "@/lib/utils/import";
 import { buildLeadsTemplate } from "@/lib/utils/import";
 import { downloadCSV } from "@/lib/utils/csv";
 
@@ -16,6 +17,11 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [confirmClean, setConfirmClean] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanMsg, setCleanMsg] = useState<string | null>(null);
 
   function downloadTemplate() {
     downloadCSV(`plantilla-leads-${new Date().toISOString().slice(0, 10)}.csv`, buildLeadsTemplate());
@@ -48,7 +54,39 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
     setError(null);
     setSummary(null);
     setPending(false);
+    setGroups(null);
+    setCleanMsg(null);
     onClose();
+  }
+
+  async function scanDuplicates() {
+    setScanning(true);
+    setCleanMsg(null);
+    const res = await getDuplicateGroups();
+    setScanning(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setGroups(res.groups);
+  }
+
+  async function confirmCleanup() {
+    setCleaning(true);
+    const res = await deleteDuplicatePhones();
+    setCleaning(false);
+    setConfirmClean(false);
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    setCleanMsg(
+      res.removed === 0
+        ? "No quedaban duplicados por eliminar."
+        : `Eliminados ${res.removed} leads duplicados (se conservó el más antiguo de cada grupo).`,
+    );
+    setGroups(null);
+    router.refresh();
   }
 
   return (
@@ -64,7 +102,7 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
             <li>Estado: Nuevo, Contactado, WhatsApp enviado, Reunión, Demo, Propuesta, Ganado, Perdido.</li>
             <li>Prioridad: Baja, Media, Alta. Fuente: Manual, Lead Hunter, Referido, Web, Otro.</li>
             <li>Valor en euros («1500», «1.200 €»). Fecha como dd/mm/aaaa.</li>
-            <li>Los duplicados (misma empresa + teléfono/email) se omiten. Máx. 500 filas.</li>
+            <li>Los duplicados por teléfono se omiten (también dentro del mismo archivo). Máx. 500 filas.</li>
           </ul>
           <Button size="sm" variant="outline" className="mt-2" onClick={downloadTemplate}>
             <Download className="h-4 w-4" /> Descargar plantilla
@@ -115,7 +153,55 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
             </div>
           </div>
         )}
+
+        <div className="rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-700">
+          <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-neutral-100">
+            <Users className="h-4 w-4" /> Limpiar duplicados por teléfono
+          </p>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Busca leads que comparten teléfono y elimina los repetidos conservando el más antiguo de cada grupo (con sus actividades y tareas también se eliminan los duplicados).
+          </p>
+          {!groups && (
+            <Button size="sm" variant="outline" className="mt-2" onClick={scanDuplicates} disabled={scanning}>
+              {scanning ? "Buscando…" : "Buscar duplicados"}
+            </Button>
+          )}
+          {groups && groups.length === 0 && (
+            <p className="mt-2 text-xs font-medium text-green-700 dark:text-green-300">
+              Sin duplicados. Tus leads están limpios.
+            </p>
+          )}
+          {groups && groups.length > 0 && (
+            <div className="mt-2">
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-neutral-600 dark:text-neutral-400">
+                {groups.map((g) => (
+                  <li key={g.phone}>
+                    <strong className="text-neutral-900 dark:text-neutral-100">{g.phone}</strong>
+                    {" "}({g.leads.length}): {g.leads.map((l) => l.company_name).join(" · ")}
+                  </li>
+                ))}
+              </ul>
+              <Button size="sm" variant="danger" className="mt-2" onClick={() => setConfirmClean(true)}>
+                Eliminar duplicados ({groups.reduce((s, g) => s + g.leads.length - 1, 0)})
+              </Button>
+            </div>
+          )}
+          {cleanMsg && (
+            <p role="status" className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800 dark:bg-green-500/10 dark:text-green-300">
+              {cleanMsg}
+            </p>
+          )}
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmClean}
+        onClose={() => setConfirmClean(false)}
+        onConfirm={confirmCleanup}
+        pending={cleaning}
+        title="¿Eliminar leads duplicados?"
+        message="Se conservará el lead más antiguo de cada grupo y se eliminarán los demás junto con sus actividades y tareas. Esta acción no se puede deshacer."
+      />
     </Dialog>
   );
 }

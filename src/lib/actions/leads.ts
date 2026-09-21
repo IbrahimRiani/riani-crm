@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { leadSchema } from "@/lib/validations/lead";
 import { LEAD_STATUS_LABELS } from "@/lib/constants/crm";
-import { parseLeadsCSV, MAX_IMPORT_ROWS } from "@/lib/utils/import";
+import { parseLeadsCSV, MAX_IMPORT_ROWS, phoneKeyVariants, findDuplicateGroups, type DuplicateGroup } from "@/lib/utils/import";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -154,11 +154,18 @@ export async function importLeadsFromCSV(
     const { supabase, user } = await requireUser();
     const { data: existing } = await supabase
       .from("leads")
-      .select("company_name, phone, whatsapp, email, website");
+      .select("company_name, phone, whatsapp, email");
 
-    const seen = new Set(
+    // Teléfonos ya existentes (cualquier variante: con/sin 34, phone o whatsapp)
+    const usedPhones = new Set<string>();
+    for (const l of existing ?? []) {
+      for (const v of [...phoneKeyVariants(l.phone), ...phoneKeyVariants(l.whatsapp)]) {
+        usedPhones.add(v);
+      }
+    }
+    const usedCompanyEmail = new Set(
       (existing ?? []).map((l) =>
-        `${(l.company_name ?? "").toLowerCase().trim()}|${(l.phone ?? "").replace(/\D/g, "")}|${(l.email ?? "").toLowerCase().trim()}`,
+        `${(l.company_name ?? "").toLowerCase().trim()}|${(l.email ?? "").toLowerCase().trim()}`,
       ),
     );
 
@@ -166,12 +173,19 @@ export async function importLeadsFromCSV(
     let skipped = 0;
     for (const r of rows) {
       const d = r.data as Record<string, string | number | null>;
-      const key = `${String(d.company_name ?? "").toLowerCase().trim()}|${String(d.phone ?? "").replace(/\D/g, "")}|${String(d.email ?? "").toLowerCase().trim()}`;
-      if (seen.has(key)) {
+      const rowPhones = [
+        ...phoneKeyVariants(String(d.phone ?? "")),
+        ...phoneKeyVariants(String(d.whatsapp ?? "")),
+      ];
+      const phoneDup = rowPhones.some((v) => usedPhones.has(v));
+      const companyEmail = `${String(d.company_name ?? "").toLowerCase().trim()}|${String(d.email ?? "").toLowerCase().trim()}`;
+      const companyDup = d.email ? usedCompanyEmail.has(companyEmail) : false;
+      if (phoneDup || companyDup) {
         skipped++;
         continue;
       }
-      seen.add(key);
+      for (const v of rowPhones) usedPhones.add(v);
+      if (d.email) usedCompanyEmail.add(companyEmail);
       toInsert.push({ ...toDb(r.data), user_id: user.id });
     }
 
@@ -190,5 +204,57 @@ export async function importLeadsFromCSV(
   } catch (e) {
     console.error("[importLeadsFromCSV]", e);
     return { ok: false, error: "No se pudo importar. Inténtalo de nuevo." };
+  }
+}
+
+export async function getDuplicateGroups(): Promise<
+  { ok: true; groups: DuplicateGroup[] } | { ok: false; error: string }
+> {
+  try {
+    const { supabase } = await requireUser();
+    const { data, error } = await supabase
+      .from("leads")
+      .select("id, company_name, phone, whatsapp, created_at")
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[getDuplicateGroups]", error);
+      return { ok: false, error: "No se pudieron buscar duplicados. Inténtalo de nuevo." };
+    }
+    return { ok: true, groups: findDuplicateGroups(data ?? []).slice(0, 100) };
+  } catch (e) {
+    console.error("[getDuplicateGroups]", e);
+    return { ok: false, error: "No se pudieron buscar duplicados. Inténtalo de nuevo." };
+  }
+}
+
+export async function deleteDuplicatePhones(): Promise<
+  { ok: true; removed: number } | { ok: false; error: string }
+> {
+  try {
+    const { supabase } = await requireUser();
+    const { data, error } = await supabase
+      .from("leads")
+      .select("id, company_name, phone, whatsapp, created_at")
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("[deleteDuplicatePhones]", error);
+      return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
+    }
+    // De cada grupo se conserva el más antiguo (primero) y se eliminan los demás.
+    // Las actividades y tareas asociadas se eliminan en cascada.
+    const ids = findDuplicateGroups(data ?? []).flatMap((g) => g.leads.slice(1).map((l) => l.id));
+    if (ids.length === 0) return { ok: true, removed: 0 };
+    const { error: delError } = await supabase.from("leads").delete().in("id", ids);
+    if (delError) {
+      console.error("[deleteDuplicatePhones]", delError);
+      return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
+    }
+    revalidatePath("/leads");
+    revalidatePath("/dashboard");
+    revalidatePath("/pipeline");
+    return { ok: true, removed: ids.length };
+  } catch (e) {
+    console.error("[deleteDuplicatePhones]", e);
+    return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
   }
 }

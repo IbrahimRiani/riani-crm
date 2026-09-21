@@ -328,3 +328,64 @@ export function buildLeadsTemplate(): string {
   ];
   return "\uFEFF" + IMPORT_HEADERS.join(";") + "\n" + example.join(";") + "\n";
 }
+
+/* ---------- Detección de duplicados por teléfono ---------- */
+
+/** Solo dígitos, sin prefijos internacionales triviales ("00", "34" inicial). */
+export function phoneDigits(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  return d;
+}
+
+/**
+ * Variantes del mismo número para comparar ("600123456" ≡ "34600123456").
+ * Devuelve [] si no hay número utilizable.
+ */
+export function phoneKeyVariants(raw: string | null | undefined): string[] {
+  const d = phoneDigits(raw);
+  if (d.length < 9) return [];
+  const out = new Set<string>([d]);
+  if (d.length === 11 && d.startsWith("34")) out.add(d.slice(2));
+  if (d.length === 9 && /^[67]/.test(d)) out.add(`34${d}`);
+  return [...out];
+}
+
+/** Clave canónica de un número (para agrupar variantes del mismo teléfono). */
+export function canonicalPhone(raw: string | null | undefined): string | null {
+  const variants = phoneKeyVariants(raw);
+  if (variants.length === 0) return null;
+  return variants.find((v) => v.length === 9) ?? variants[0];
+}
+
+export interface DuplicateGroup {
+  phone: string;
+  leads: { id: string; company_name: string; created_at: string }[];
+}
+
+/**
+ * Agrupa leads que comparten teléfono (mirando phone y whatsapp).
+ * Pura y testeada; el orden de cada grupo es del más antiguo al más nuevo.
+ */
+export function findDuplicateGroups<
+  T extends { id: string; company_name: string; phone: string | null; whatsapp: string | null; created_at: string },
+>(leads: T[]): DuplicateGroup[] {
+  const byPhone = new Map<string, T[]>();
+  for (const l of leads) {
+    const key = canonicalPhone(l.phone) ?? canonicalPhone(l.whatsapp);
+    if (!key) continue;
+    const list = byPhone.get(key) ?? [];
+    list.push(l);
+    byPhone.set(key, list);
+  }
+  return [...byPhone.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([phone, list]) => ({
+      phone,
+      leads: [...list]
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((l) => ({ id: l.id, company_name: l.company_name, created_at: l.created_at })),
+    }))
+    .sort((a, b) => b.leads.length - a.leads.length);
+}

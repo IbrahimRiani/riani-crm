@@ -5,6 +5,9 @@ import {
   parseImportDate,
   splitCSVLine,
   buildLeadsTemplate,
+  phoneKeyVariants,
+  canonicalPhone,
+  findDuplicateGroups,
   IMPORT_HEADERS,
 } from "@/lib/utils/import";
 
@@ -92,5 +95,35 @@ describe("parseLeadsCSV", () => {
     expect(errors).toEqual([]);
     expect(rows).toHaveLength(1);
     expect(IMPORT_HEADERS).toContain("Empresa");
+  });
+});
+
+describe("duplicados por teléfono", () => {
+  it("detecta variantes del mismo número", () => {
+    expect(phoneKeyVariants("600 123 456")).toContain("34600123456");
+    expect(phoneKeyVariants("+34 600 123 456")).toContain("600123456");
+    expect(phoneKeyVariants("")).toEqual([]);
+    expect(phoneKeyVariants("123")).toEqual([]);
+    expect(canonicalPhone("34600123456")).toBe("600123456");
+  });
+
+  it("agrupa leads que comparten teléfono aunque el nombre difiera", () => {
+    const groups = findDuplicateGroups([
+      { id: "1", company_name: "Clínica Sonrisa", phone: "600123456", whatsapp: null, created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "CLINICA DENTAL SONRISA", phone: "+34 600 123 456", whatsapp: null, created_at: "2026-09-02T00:00:00Z" },
+      { id: "3", company_name: "Otra empresa", phone: "611111111", whatsapp: null, created_at: "2026-09-03T00:00:00Z" },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].phone).toBe("600123456");
+    // El más antiguo primero (es el que se conserva)
+    expect(groups[0].leads.map((l) => l.id)).toEqual(["1", "2"]);
+  });
+
+  it("también mira el campo whatsapp", () => {
+    const groups = findDuplicateGroups([
+      { id: "1", company_name: "A", phone: null, whatsapp: "600123456", created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "B", phone: "600123456", whatsapp: null, created_at: "2026-09-02T00:00:00Z" },
+    ]);
+    expect(groups).toHaveLength(1);
   });
 });
