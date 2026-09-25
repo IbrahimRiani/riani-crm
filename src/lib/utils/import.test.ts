@@ -95,6 +95,13 @@ describe("parseLeadsCSV", () => {
     expect(errors).toEqual([]);
     expect(rows).toHaveLength(1);
     expect(IMPORT_HEADERS).toContain("Empresa");
+    expect(IMPORT_HEADERS).toContain("Responsable");
+  });
+
+  it("pasa el responsable como email para resolver en servidor", () => {
+    const { rows, errors } = parseLeadsCSV("Empresa,Responsable\nClínica X,Ibra@Mail.com");
+    expect(errors).toEqual([]);
+    expect(rows[0].assigneeEmail).toBe("ibra@mail.com");
   });
 });
 

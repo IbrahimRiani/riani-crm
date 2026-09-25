@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Search, Download, ArrowUpDown, Upload } from "lucide-react";
-import type { Lead } from "@/types/crm";
+import type { Lead, Profile } from "@/types/crm";
 import { LEAD_STATUSES, LEAD_PRIORITIES, LEAD_SOURCES } from "@/lib/constants/crm";
 import { StatusBadge, PriorityBadge } from "@/components/ui/badges";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { PageHeader } from "@/components/layout/header";
 
 type SortKey = "company" | "value" | "followup" | "created";
 
-export function LeadsExplorer({ leads }: { leads: Lead[] }) {
+export function LeadsExplorer({ leads, profiles = [], isAdmin = false }: { leads: Lead[]; profiles?: Profile[]; isAdmin?: boolean }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
@@ -54,7 +54,11 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
   }, [leads, q, status, priority, source, sort]);
 
   function exportCSV() {
-    downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, leadsToCSV(filtered));
+    const emailById: Record<string, string> = {};
+    for (const p of profiles) {
+      if (p.id && p.email) emailById[p.id] = p.email;
+    }
+    downloadCSV(`leads-${new Date().toISOString().slice(0, 10)}.csv`, leadsToCSV(filtered, emailById));
   }
 
   return (
@@ -199,9 +203,9 @@ export function LeadsExplorer({ leads }: { leads: Lead[] }) {
       )}
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Nuevo lead" wide>
-        <LeadForm onDone={() => setCreateOpen(false)} />
+        <LeadForm profiles={profiles} onDone={() => setCreateOpen(false)} />
       </Dialog>
-      <LeadImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <LeadImportDialog open={importOpen} onClose={() => setImportOpen(false)} isAdmin={isAdmin} />
     </div>
   );
 }

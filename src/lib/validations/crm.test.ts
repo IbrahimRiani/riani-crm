@@ -26,6 +26,12 @@ describe("leadSchema", () => {
     const r = leadSchema.safeParse({ company_name: "X", website: "empresa.com", status: "new", priority: "medium", source: "manual" });
     expect(r.success && r.data.website).toBe("https://empresa.com");
   });
+  it("acepta responsable uuid y rechaza texto libre", () => {
+    const base = { company_name: "X", status: "new", priority: "medium", source: "manual" };
+    expect(leadSchema.safeParse({ ...base, assigned_to: "123e4567-e89b-12d3-a456-426614174000" }).success).toBe(true);
+    expect(leadSchema.safeParse({ ...base, assigned_to: "Ibrahim" }).success).toBe(false);
+    expect(leadSchema.safeParse({ ...base, assigned_to: "" }).success).toBe(true);
+  });
 });
 
 describe("activitySchema", () => {
@@ -67,7 +73,7 @@ describe("leadsToCSV", () => {
   it("genera cabecera + fila", () => {
     const csv = leadsToCSV([
       {
-        id: "1", user_id: "u", company_name: "Test SL", business_type: null, city: "Madrid",
+        id: "1", user_id: "u", assigned_to: "a1", company_name: "Test SL", business_type: null, city: "Madrid",
         province: null, website: null, phone: null, whatsapp: null, email: null,
         contact_name: "Ana", status: "new", priority: "medium", source: "manual",
         notes: null, deal_value: 1000, next_follow_up: null,
@@ -76,5 +82,21 @@ describe("leadsToCSV", () => {
     ]);
     expect(csv).toContain("Empresa");
     expect(csv).toContain("Test SL");
+  });
+  it("incluye el email del responsable", () => {
+    const csv = leadsToCSV(
+      [
+        {
+          id: "1", user_id: "u", assigned_to: "a1", company_name: "Test SL", business_type: null, city: null,
+          province: null, website: null, phone: null, whatsapp: null, email: null,
+          contact_name: null, status: "new", priority: "medium", source: "manual",
+          notes: null, deal_value: null, next_follow_up: null,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        },
+      ],
+      { a1: "ibra@mail.com" },
+    );
+    expect(csv).toContain("Responsable");
+    expect(csv).toContain("ibra@mail.com");
   });
 });

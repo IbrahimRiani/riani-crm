@@ -93,8 +93,8 @@ Leads → **Importar**. Vale cualquier `.csv` o `.txt` con este formato
 que genera **CSV** al exportar, así que hay ida y vuelta:
 
 ```text
-Empresa;Tipo;Contacto;Teléfono;WhatsApp;Email;Web;Ciudad;Provincia;Estado;Prioridad;Fuente;Valor;Próximo seguimiento;Notas
-Clínica Dental Sonrisa;Clínica dental;María García;600123456;600123456;info@sonrisa.com;sonrisa.com;Madrid;Madrid;Nuevo;Alta;Manual;1500;25/09/2026;Quieren automatizar citas
+Empresa;Tipo;Contacto;Teléfono;WhatsApp;Email;Web;Ciudad;Provincia;Estado;Prioridad;Fuente;Responsable;Valor;Próximo seguimiento;Notas
+Clínica Dental Sonrisa;Clínica dental;María García;600123456;600123456;info@sonrisa.com;sonrisa.com;Madrid;Madrid;Nuevo;Alta;Manual;ibra@mail.com;1500;25/09/2026;Quieren automatizar citas
 ```
 
 Reglas:
@@ -102,6 +102,7 @@ Reglas:
 - Solo **Empresa** es obligatoria. Columnas desconocidas se ignoran.
 - **Estado**: Nuevo, Contactado, WhatsApp enviado, Reunión, Demo, Propuesta, Ganado, Perdido (vacío → Nuevo).
 - **Prioridad**: Baja, Media, Alta (vacío → Media). **Fuente**: Manual, Lead Hunter, Referido, Web, Otro (vacío → Manual).
+- **Responsable**: email de un usuario del equipo (vacío = sin asignar; email desconocido = error de fila).
 - **Valor** en euros: `1500`, `1.200 €`, `2,500`. **Fecha**: `dd/mm/aaaa` o `aaaa-mm-dd`.
 - Campos con `;` entre comillas: `"nota con; punto y coma"`. También se acepta `,` como separador si la cabecera lo usa.
 - Los duplicados por teléfono se omiten: si el teléfono o WhatsApp de una fila
@@ -113,6 +114,20 @@ Reglas:
 - Si ya tienes duplicados de importaciones anteriores, el mismo diálogo
   tiene **Limpiar duplicados por teléfono**: los busca, te muestra los grupos
   y al confirmar elimina los repetidos conservando el más antiguo de cada grupo.
+
+## Modelo compartido (multiusuario)
+
+Una sola cartera para todo el equipo: todos los autenticados ven y editan
+los mismos leads, actividades y tareas. Sin organizaciones ni equipos.
+
+- `profiles(id, email, role)`: rol `admin` o `member`. Alta automática como
+  `member` al registrarse (trigger `handle_new_user`).
+- `leads.assigned_to`: responsable del lead (email visible en ficha y CSV).
+- Roles: miembro ve/crea/edita todo; admin además elimina leads, limpia
+  duplicados y cambia roles en `/users` (nadie cambia su propio rol).
+- `user_id` se conserva como "creado por" (trazabilidad).
+- Migraciones: `0001_init.sql` (base) → `0002_shared_crm.sql` (perfiles,
+  assigned_to, policies compartidas). Aplicar en orden en el SQL Editor.
 
 ## Decisiones
 

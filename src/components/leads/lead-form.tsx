@@ -10,7 +10,7 @@ import {
   LEAD_PRIORITIES,
   LEAD_SOURCES,
 } from "@/lib/constants/crm";
-import type { Lead } from "@/types/crm";
+import type { Lead, Profile } from "@/types/crm";
 import { createLead, updateLead } from "@/lib/actions/leads";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label, Select, FieldError } from "@/components/ui/form";
@@ -32,10 +32,11 @@ function defaults(lead?: Lead): LeadFormValues {
     deal_value: lead?.deal_value ?? undefined,
     next_follow_up: lead?.next_follow_up ?? "",
     notes: lead?.notes ?? "",
+    assigned_to: lead?.assigned_to ?? "",
   } as LeadFormValues;
 }
 
-export function LeadForm({ lead, onDone }: { lead?: Lead; onDone?: () => void }) {
+export function LeadForm({ lead, profiles = [], onDone }: { lead?: Lead; profiles?: Profile[]; onDone?: () => void }) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -136,6 +137,18 @@ export function LeadForm({ lead, onDone }: { lead?: Lead; onDone?: () => void })
         <div className="sm:col-span-2">
           <Label htmlFor="next_follow_up">Próximo seguimiento</Label>
           <Input id="next_follow_up" type="date" {...register("next_follow_up")} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="assigned_to">Responsable</Label>
+          <Select id="assigned_to" {...register("assigned_to")}>
+            <option value="">Sin asignar</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.email ?? p.id} {p.role === "admin" ? "(admin)" : ""}
+              </option>
+            ))}
+          </Select>
+          <FieldError message={errors.assigned_to?.message} />
         </div>
       </div>
 

@@ -26,6 +26,7 @@ export const IMPORT_HEADERS = [
   "Estado",
   "Prioridad",
   "Fuente",
+  "Responsable",
   "Valor",
   "Próximo seguimiento",
   "Notas",
@@ -42,6 +43,8 @@ export interface ImportRowError {
 export interface ParsedImportRow {
   row: number;
   data: Record<string, unknown>;
+  /** Email de la columna Responsable (se resuelve a assigned_to en el servidor). */
+  assigneeEmail?: string;
 }
 
 function norm(s: string): string {
@@ -232,7 +235,12 @@ export function parseLeadsCSV(text: string): {
   const delimiter = detectDelimiter(lines[0]);
   const headers = splitCSVLine(lines[0], delimiter).map(norm);
   const colIndex = new Map<string, number>();
+  let assigneeIdx: number | undefined;
   headers.forEach((h, i) => {
+    if (["responsable", "owner", "asignado", "responsible"].includes(h)) {
+      if (assigneeIdx === undefined) assigneeIdx = i;
+      return;
+    }
     const key = COLUMN_MAP[h];
     if (key && !colIndex.has(key)) colIndex.set(key, i);
   });
@@ -300,7 +308,13 @@ export function parseLeadsCSV(text: string): {
       errors.push({ row: rowNumber, message: `${field}: ${first.message}` });
       continue;
     }
-    rows.push({ row: rowNumber, data: parsed.data as Record<string, unknown> });
+    const assigneeEmail =
+      assigneeIdx !== undefined ? (fields[assigneeIdx] ?? "").trim().toLowerCase() : "";
+    rows.push({
+      row: rowNumber,
+      data: parsed.data as Record<string, unknown>,
+      assigneeEmail: assigneeEmail || undefined,
+    });
   }
 
   return { rows, errors, delimiter };
@@ -321,6 +335,7 @@ export function buildLeadsTemplate(): string {
     "Nuevo",
     "Alta",
     "Manual",
+    "",
     "1500",
     "25/09/2026",
     "Quieren automatizar las citas por WhatsApp",

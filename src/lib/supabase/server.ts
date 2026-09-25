@@ -33,3 +33,13 @@ export async function getSessionUser() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+export async function getUserRole(): Promise<"admin" | "member" | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  return data?.role === "admin" ? "admin" : "member";
+}

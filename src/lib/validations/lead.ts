@@ -89,6 +89,14 @@ export const leadSchema = z.object({
     .or(z.literal(""))
     .transform((v) => (v === "" ? undefined : v)),
   notes: optionalText(5000),
+  assigned_to: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v))
+    .refine((v) => !v || z.string().uuid().safeParse(v).success, {
+      message: "Responsable no válido",
+    }),
 });
 
 export type LeadFormValues = z.input<typeof leadSchema>;

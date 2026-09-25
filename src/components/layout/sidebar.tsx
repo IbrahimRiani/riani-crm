@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils/cn";
@@ -26,7 +27,7 @@ const NAV = [
   { href: "/settings", label: "Configuración", icon: Settings },
 ];
 
-export function Sidebar({ email }: { email?: string }) {
+export function Sidebar({ email, isAdmin = false }: { email?: string; isAdmin?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -45,8 +46,7 @@ export function Sidebar({ email }: { email?: string }) {
         <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Ibra CRM</span>
       </div>
       <nav className="flex-1 space-y-1 px-3" aria-label="Navegación principal">
-        {NAV.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        {NAV.map((item) => {          const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (
             <Link
@@ -65,6 +65,21 @@ export function Sidebar({ email }: { email?: string }) {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/users"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/users" || pathname.startsWith("/users/")
+                ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
+            )}
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Usuarios
+          </Link>
+        )}
       </nav>
       <div className="border-t border-neutral-200 p-3 dark:border-neutral-800">
         <ThemeToggle />

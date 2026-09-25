@@ -4,7 +4,7 @@ import { formatDateES } from "@/lib/utils/format";
 
 const HEADERS = [
   "Empresa", "Tipo", "Contacto", "Teléfono", "WhatsApp", "Email", "Web",
-  "Ciudad", "Provincia", "Estado", "Prioridad", "Fuente", "Valor",
+  "Ciudad", "Provincia", "Estado", "Prioridad", "Fuente", "Responsable", "Valor",
   "Próximo seguimiento", "Notas", "Fecha creación",
 ];
 
@@ -13,7 +13,7 @@ function cell(v: string | number | null | undefined): string {
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function leadsToCSV(leads: Lead[]): string {
+export function leadsToCSV(leads: Lead[], emailById: Record<string, string> = {}): string {
   const rows = leads.map((l) =>
     [
       cell(l.company_name),
@@ -28,6 +28,7 @@ export function leadsToCSV(leads: Lead[]): string {
       cell(LEAD_STATUS_LABELS[l.status]),
       cell(LEAD_PRIORITY_LABELS[l.priority]),
       cell(LEAD_SOURCE_LABELS[l.source]),
+      cell(l.assigned_to ? (emailById[l.assigned_to] ?? "") : ""),
       cell(l.deal_value ?? ""),
       cell(l.next_follow_up ? formatDateES(l.next_follow_up) : ""),
       cell(l.notes),

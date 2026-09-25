@@ -10,7 +10,7 @@ import type { DuplicateGroup } from "@/lib/utils/import";
 import { buildLeadsTemplate } from "@/lib/utils/import";
 import { downloadCSV } from "@/lib/utils/csv";
 
-export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boolean; onClose: () => void; isAdmin?: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -95,12 +95,13 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
         <div className="rounded-lg bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
           <p className="font-semibold text-neutral-900 dark:text-neutral-100">Formato del archivo (.csv o .txt)</p>
           <code className="mt-1 block overflow-x-auto whitespace-nowrap py-1">
-            Empresa;Tipo;Contacto;Teléfono;WhatsApp;Email;Web;Ciudad;Provincia;Estado;Prioridad;Fuente;Valor;Próximo seguimiento;Notas
+            Empresa;Tipo;Contacto;Teléfono;WhatsApp;Email;Web;Ciudad;Provincia;Estado;Prioridad;Fuente;Responsable;Valor;Próximo seguimiento;Notas
           </code>
           <ul className="mt-1 list-disc space-y-0.5 pl-4">
             <li>Solo <strong>Empresa</strong> es obligatoria.</li>
             <li>Estado: Nuevo, Contactado, WhatsApp enviado, Reunión, Demo, Propuesta, Ganado, Perdido.</li>
             <li>Prioridad: Baja, Media, Alta. Fuente: Manual, Lead Hunter, Referido, Web, Otro.</li>
+            <li>Responsable: email de un usuario del equipo (vacío = sin asignar).</li>
             <li>Valor en euros («1500», «1.200 €»). Fecha como dd/mm/aaaa.</li>
             <li>Los duplicados por teléfono se omiten (también dentro del mismo archivo). Máx. 500 filas.</li>
           </ul>
@@ -154,6 +155,7 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
           </div>
         )}
 
+        {isAdmin && (
         <div className="rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-700">
           <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-neutral-100">
             <Users className="h-4 w-4" /> Limpiar duplicados por teléfono
@@ -192,6 +194,7 @@ export function LeadImportDialog({ open, onClose }: { open: boolean; onClose: ()
             </p>
           )}
         </div>
+        )}
       </div>
 
       <ConfirmDialog

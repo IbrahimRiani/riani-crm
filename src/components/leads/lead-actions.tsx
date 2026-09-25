@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Mail, MessageCircle, Pencil, Trash2, Plus, StickyNote, CalendarCheck } from "lucide-react";
-import type { Lead } from "@/types/crm";
+import type { Lead, Profile } from "@/types/crm";
 import { LEAD_STATUSES } from "@/lib/constants/crm";
 import { whatsappUrl } from "@/lib/utils/whatsapp";
 import { deleteLead, updateLead } from "@/lib/actions/leads";
@@ -22,7 +22,7 @@ const QUICK_TYPES = [
   { value: "meeting", label: "Reunión", icon: CalendarCheck },
 ] as const;
 
-export function LeadActions({ lead }: { lead: Lead }) {
+export function LeadActions({ lead, isAdmin, profiles = [] }: { lead: Lead; isAdmin: boolean; profiles?: Profile[] }) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -96,6 +96,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       deal_value: lead.deal_value ?? undefined,
       next_follow_up: lead.next_follow_up ?? "",
       notes: lead.notes ?? "",
+      assigned_to: lead.assigned_to ?? "",
     });
     // Registrar cambio de estado como actividad
     if (res.ok && next !== lead.status) {
@@ -143,9 +144,11 @@ export function LeadActions({ lead }: { lead: Lead }) {
         <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
           <Pencil className="h-4 w-4" /> Editar
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setDeleteOpen(true)}>
-          <Trash2 className="h-4 w-4" /> Eliminar
-        </Button>
+        {isAdmin && (
+          <Button size="sm" variant="outline" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4" /> Eliminar
+          </Button>
+        )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -185,7 +188,7 @@ export function LeadActions({ lead }: { lead: Lead }) {
       )}
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} title="Editar lead" wide>
-        <LeadForm lead={lead} onDone={() => setEditOpen(false)} />
+        <LeadForm lead={lead} profiles={profiles} onDone={() => setEditOpen(false)} />
       </Dialog>
 
       <ConfirmDialog

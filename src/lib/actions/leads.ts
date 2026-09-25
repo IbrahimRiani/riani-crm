@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserRole } from "@/lib/supabase/server";
 import { leadSchema } from "@/lib/validations/lead";
 import { LEAD_STATUS_LABELS } from "@/lib/constants/crm";
 import { parseLeadsCSV, MAX_IMPORT_ROWS, phoneKeyVariants, findDuplicateGroups, type DuplicateGroup } from "@/lib/utils/import";
@@ -78,6 +78,9 @@ export async function updateLead(id: string, input: unknown): Promise<ActionResu
 export async function deleteLead(id: string): Promise<ActionResult> {
   try {
     const { supabase } = await requireUser();
+    if ((await getUserRole()) !== "admin") {
+      return { ok: false, error: "Solo un administrador puede eliminar leads." };
+    }
     const { error } = await supabase.from("leads").delete().eq("id", id);
     if (error) {
       console.error("[deleteLead]", error);
@@ -93,7 +96,8 @@ export async function deleteLead(id: string): Promise<ActionResult> {
   }
 }
 
-export async function moveLeadStatus(  id: string,
+export async function moveLeadStatus(
+  id: string,
   from: string,
   to: string,
 ): Promise<ActionResult> {
@@ -156,6 +160,13 @@ export async function importLeadsFromCSV(
       .from("leads")
       .select("company_name, phone, whatsapp, email");
 
+    // Resolver columna Responsable (email) → assigned_to
+    const { data: profiles } = await supabase.from("profiles").select("id, email");
+    const profileByEmail = new Map(
+      (profiles ?? []).map((p) => [(p.email ?? "").toLowerCase().trim(), p.id as string]),
+    );
+    const rowErrors = [...errors];
+
     // Teléfonos ya existentes (cualquier variante: con/sin 34, phone o whatsapp)
     const usedPhones = new Set<string>();
     for (const l of existing ?? []) {
@@ -173,6 +184,14 @@ export async function importLeadsFromCSV(
     let skipped = 0;
     for (const r of rows) {
       const d = r.data as Record<string, string | number | null>;
+      if (r.assigneeEmail) {
+        const pid = profileByEmail.get(r.assigneeEmail);
+        if (!pid) {
+          rowErrors.push({ row: r.row, message: `Responsable desconocido: «${r.assigneeEmail}».` });
+          continue;
+        }
+        d.assigned_to = pid;
+      }
       const rowPhones = [
         ...phoneKeyVariants(String(d.phone ?? "")),
         ...phoneKeyVariants(String(d.whatsapp ?? "")),
@@ -200,7 +219,7 @@ export async function importLeadsFromCSV(
     revalidatePath("/leads");
     revalidatePath("/dashboard");
     revalidatePath("/pipeline");
-    return { ok: true, summary: { imported: toInsert.length, skipped, errors } };
+    return { ok: true, summary: { imported: toInsert.length, skipped, errors: rowErrors } };
   } catch (e) {
     console.error("[importLeadsFromCSV]", e);
     return { ok: false, error: "No se pudo importar. Inténtalo de nuevo." };
@@ -232,6 +251,9 @@ export async function deleteDuplicatePhones(): Promise<
 > {
   try {
     const { supabase } = await requireUser();
+    if ((await getUserRole()) !== "admin") {
+      return { ok: false, error: "Solo un administrador puede eliminar duplicados." };
+    }
     const { data, error } = await supabase
       .from("leads")
       .select("id, company_name, phone, whatsapp, created_at")

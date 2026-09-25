@@ -8,6 +8,7 @@ import type {
 export interface Lead {
   id: string;
   user_id: string;
+  assigned_to: string | null;
   company_name: string;
   business_type: string | null;
   city: string | null;
@@ -50,6 +51,15 @@ export interface Task {
 
 export interface TaskWithLead extends Task {
   leads?: Pick<Lead, "id" | "company_name" | "contact_name" | "status"> | null;
+}
+
+export type UserRole = "admin" | "member";
+
+export interface Profile {
+  id: string;
+  email: string | null;
+  role: UserRole;
+  created_at: string;
 }
 
 export type LeadInsert = Omit<Lead, "id" | "created_at" | "updated_at">;
