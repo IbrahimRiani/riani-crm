@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, Download, CircleCheck, CircleAlert, Users } from "lucide-react";
 import { Dialog, ConfirmDialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { importLeadsFromCSV, getDuplicateGroups, deleteDuplicatePhones, type ImportSummary } from "@/lib/actions/leads";
+import { importLeadsFromCSV, getDuplicateGroups, deleteDuplicateLeads, type ImportSummary } from "@/lib/actions/leads";
 import type { DuplicateGroup } from "@/lib/utils/import";
 import { buildLeadsTemplate } from "@/lib/utils/import";
 import { downloadCSV } from "@/lib/utils/csv";
@@ -18,6 +18,7 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [groups, setGroups] = useState<DuplicateGroup[] | null>(null);
+  const [keepByGroup, setKeepByGroup] = useState<Record<string, string>>({});
   const [scanning, setScanning] = useState(false);
   const [confirmClean, setConfirmClean] = useState(false);
   const [cleaning, setCleaning] = useState(false);
@@ -69,11 +70,25 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
       return;
     }
     setGroups(res.groups);
+    // Por defecto se conserva el más antiguo de cada grupo
+    const defaults: Record<string, string> = {};
+    for (const g of res.groups) {
+      if (g.leads.length > 0) defaults[`${g.kind}:${g.key}`] = g.leads[0].id;
+    }
+    setKeepByGroup(defaults);
+  }
+
+  function idsToDelete(): string[] {
+    if (!groups) return [];
+    return groups.flatMap((g) => {
+      const keep = keepByGroup[`${g.kind}:${g.key}`] ?? g.leads[0]?.id;
+      return g.leads.map((l) => l.id).filter((id) => id !== keep);
+    });
   }
 
   async function confirmCleanup() {
     setCleaning(true);
-    const res = await deleteDuplicatePhones();
+    const res = await deleteDuplicateLeads(idsToDelete());
     setCleaning(false);
     setConfirmClean(false);
     if (!res.ok) {
@@ -83,7 +98,7 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
     setCleanMsg(
       res.removed === 0
         ? "No quedaban duplicados por eliminar."
-        : `Eliminados ${res.removed} leads duplicados (se conservó el más antiguo de cada grupo).`,
+        : `Eliminados ${res.removed} leads duplicados.`,
     );
     setGroups(null);
     router.refresh();
@@ -158,10 +173,10 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
         {isAdmin && (
         <div className="rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-700">
           <p className="flex items-center gap-2 font-medium text-neutral-900 dark:text-neutral-100">
-            <Users className="h-4 w-4" /> Limpiar duplicados por teléfono
+            <Users className="h-4 w-4" /> Limpiar duplicados (teléfono o web)
           </p>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Busca leads que comparten teléfono y elimina los repetidos conservando el más antiguo de cada grupo (con sus actividades y tareas también se eliminan los duplicados).
+            Agrupados por teléfono o web. Elige cuál conservar de cada grupo y elimina el resto (con sus actividades y tareas).
           </p>
           {!groups && (
             <Button size="sm" variant="outline" className="mt-2" onClick={scanDuplicates} disabled={scanning}>
@@ -174,17 +189,36 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
             </p>
           )}
           {groups && groups.length > 0 && (
-            <div className="mt-2">
-              <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-neutral-600 dark:text-neutral-400">
-                {groups.map((g) => (
-                  <li key={g.phone}>
-                    <strong className="text-neutral-900 dark:text-neutral-100">{g.phone}</strong>
-                    {" "}({g.leads.length}): {g.leads.map((l) => l.company_name).join(" · ")}
-                  </li>
-                ))}
-              </ul>
-              <Button size="sm" variant="danger" className="mt-2" onClick={() => setConfirmClean(true)}>
-                Eliminar duplicados ({groups.reduce((s, g) => s + g.leads.length - 1, 0)})
+            <div className="mt-2 space-y-3">
+              <div className="max-h-56 space-y-3 overflow-y-auto">
+                {groups.map((g) => {
+                  const gk = `${g.kind}:${g.key}`;
+                  return (
+                    <fieldset key={gk} className="rounded-lg border border-neutral-200 p-2 dark:border-neutral-700">
+                      <legend className="px-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                        {g.kind === "phone" ? "Tel: " : "Web: "}{g.key} ({g.leads.length})
+                      </legend>
+                      {g.leads.map((l) => (
+                        <label key={l.id} className="flex cursor-pointer items-center gap-2 py-1 text-xs text-neutral-700 dark:text-neutral-300">
+                          <input
+                            type="radio"
+                            name={gk}
+                            checked={(keepByGroup[gk] ?? g.leads[0]?.id) === l.id}
+                            onChange={() => setKeepByGroup({ ...keepByGroup, [gk]: l.id })}
+                            className="accent-neutral-900 dark:accent-white"
+                          />
+                          <span>
+                            Conservar <strong>{l.company_name}</strong>
+                            {l.id === g.leads[0]?.id && <span className="text-neutral-400"> (más antiguo)</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+                  );
+                })}
+              </div>
+              <Button size="sm" variant="danger" onClick={() => setConfirmClean(true)}>
+                Eliminar los no seleccionados ({idsToDelete().length})
               </Button>
             </div>
           )}
@@ -203,7 +237,7 @@ export function LeadImportDialog({ open, onClose, isAdmin = false }: { open: boo
         onConfirm={confirmCleanup}
         pending={cleaning}
         title="¿Eliminar leads duplicados?"
-        message="Se conservará el lead más antiguo de cada grupo y se eliminarán los demás junto con sus actividades y tareas. Esta acción no se puede deshacer."
+        message="Se eliminarán los leads no seleccionados junto con sus actividades y tareas. Siempre queda al menos uno por grupo. Esta acción no se puede deshacer."
       />
     </Dialog>
   );

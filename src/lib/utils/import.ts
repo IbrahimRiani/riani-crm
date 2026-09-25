@@ -374,31 +374,89 @@ export function canonicalPhone(raw: string | null | undefined): string | null {
   return variants.find((v) => v.length === 9) ?? variants[0];
 }
 
+/* ---------- Normalización de webs para deduplicar ---------- */
+
+const GENERIC_DOMAINS = new Set([
+  "facebook.com",
+  "instagram.com",
+  "linkedin.com",
+  "tiktok.com",
+  "twitter.com",
+  "x.com",
+  "youtube.com",
+  "google.com",
+  "wa.me",
+]);
+
+/**
+ * "https://www.Clinica.com/" → "clinica.com". null si no es una web utilizable.
+ * Se conserva la ruta (facebook.com/clinica-x ≠ facebook.com/clinica-y).
+ */
+export function normalizeWebsiteKey(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let s = raw.trim().toLowerCase();
+  if (!s) return null;
+  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/+$/, "");
+  if (s.length < 4 || !s.includes(".")) return null;
+  return s;
+}
+
+/** Claves de una web: URL normalizada + dominio (salvo plataformas genéricas). */
+export function websiteKeyVariants(raw: string | null | undefined): string[] {
+  const n = normalizeWebsiteKey(raw);
+  if (!n) return [];
+  const out = new Set<string>([n]);
+  const domain = n.split("/")[0];
+  if (!GENERIC_DOMAINS.has(domain)) out.add(domain);
+  return [...out];
+}
+
 export interface DuplicateGroup {
-  phone: string;
+  /** Clave de agrupación (teléfono canónico o web normalizada). */
+  key: string;
+  kind: "phone" | "web";
   leads: { id: string; company_name: string; created_at: string }[];
 }
 
 /**
- * Agrupa leads que comparten teléfono (mirando phone y whatsapp).
+ * Agrupa leads que comparten teléfono o web (mirando phone, whatsapp y website).
  * Pura y testeada; el orden de cada grupo es del más antiguo al más nuevo.
  */
 export function findDuplicateGroups<
-  T extends { id: string; company_name: string; phone: string | null; whatsapp: string | null; created_at: string },
+  T extends {
+    id: string;
+    company_name: string;
+    phone: string | null;
+    whatsapp: string | null;
+    website: string | null;
+    created_at: string;
+  },
 >(leads: T[]): DuplicateGroup[] {
-  const byPhone = new Map<string, T[]>();
-  for (const l of leads) {
-    const key = canonicalPhone(l.phone) ?? canonicalPhone(l.whatsapp);
-    if (!key) continue;
-    const list = byPhone.get(key) ?? [];
-    list.push(l);
-    byPhone.set(key, list);
+  const seen = new Map<string, number>(); // clave → índice de grupo
+  const groups: { key: string; kind: "phone" | "web"; list: T[] }[] = [];
+
+  function addKey(key: string, kind: "phone" | "web", lead: T) {
+    const idx = seen.get(`${kind}:${key}`);
+    if (idx === undefined) {
+      seen.set(`${kind}:${key}`, groups.length);
+      groups.push({ key, kind, list: [lead] });
+    } else if (!groups[idx].list.some((l) => l.id === lead.id)) {
+      groups[idx].list.push(lead);
+    }
   }
-  return [...byPhone.entries()]
-    .filter(([, list]) => list.length > 1)
-    .map(([phone, list]) => ({
-      phone,
-      leads: [...list]
+
+  for (const l of leads) {
+    const phone = canonicalPhone(l.phone) ?? canonicalPhone(l.whatsapp);
+    if (phone) addKey(phone, "phone", l);
+    for (const w of websiteKeyVariants(l.website)) addKey(w, "web", l);
+  }
+
+  return groups
+    .filter((g) => g.list.length > 1)
+    .map((g) => ({
+      key: g.key,
+      kind: g.kind,
+      leads: [...g.list]
         .sort((a, b) => a.created_at.localeCompare(b.created_at))
         .map((l) => ({ id: l.id, company_name: l.company_name, created_at: l.created_at })),
     }))

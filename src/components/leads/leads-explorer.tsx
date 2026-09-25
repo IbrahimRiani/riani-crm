@@ -27,8 +27,18 @@ export function LeadsExplorer({ leads, profiles = [], isAdmin = false }: { leads
   const [source, setSource] = useState("all");
   const [sort, setSort] = useState<SortKey>("created");
   const [createOpen, setCreateOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(
+    // Abrir el diálogo de importación con /leads#importar
+    () => typeof window !== "undefined" && window.location.hash === "#importar",
+  );
   const [, startTransition] = useTransition();
+
+  function closeImport() {
+    setImportOpen(false);
+    if (typeof window !== "undefined" && window.location.hash === "#importar") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -205,7 +215,7 @@ export function LeadsExplorer({ leads, profiles = [], isAdmin = false }: { leads
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Nuevo lead" wide>
         <LeadForm profiles={profiles} onDone={() => setCreateOpen(false)} />
       </Dialog>
-      <LeadImportDialog open={importOpen} onClose={() => setImportOpen(false)} isAdmin={isAdmin} />
+      <LeadImportDialog open={importOpen} onClose={closeImport} isAdmin={isAdmin} />
     </div>
   );
 }

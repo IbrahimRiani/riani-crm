@@ -105,15 +105,16 @@ Reglas:
 - **Responsable**: email de un usuario del equipo (vacío = sin asignar; email desconocido = error de fila).
 - **Valor** en euros: `1500`, `1.200 €`, `2,500`. **Fecha**: `dd/mm/aaaa` o `aaaa-mm-dd`.
 - Campos con `;` entre comillas: `"nota con; punto y coma"`. También se acepta `,` como separador si la cabecera lo usa.
-- Los duplicados por teléfono se omiten: si el teléfono o WhatsApp de una fila
-  ya existe en tus leads (da igual que el nombre venga escrito distinto),
+- Los duplicados se omiten: si el teléfono, WhatsApp o web de una fila ya
+  existe en tus leads (da igual que el nombre venga escrito distinto),
   no se importa. También se detectan duplicados dentro del propio archivo.
   Máx. 500 filas por importación.
 - El resultado muestra importados, omitidos y errores por número de fila.
 - Hay botón **Descargar plantilla** dentro del diálogo de importación.
-- Si ya tienes duplicados de importaciones anteriores, el mismo diálogo
-  tiene **Limpiar duplicados por teléfono**: los busca, te muestra los grupos
-  y al confirmar elimina los repetidos conservando el más antiguo de cada grupo.
+- Si ya tienes duplicados, el mismo diálogo tiene **Limpiar duplicados**:
+  los agrupa por teléfono o web, eliges cuál conservar de cada grupo y
+  eliminas el resto (solo admin). El dashboard avisa si hay duplicados
+  pendientes con un enlace directo a la revisión.
 
 ## Modelo compartido (multiusuario)
 

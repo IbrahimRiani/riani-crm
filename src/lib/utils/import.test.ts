@@ -116,21 +116,40 @@ describe("duplicados por teléfono", () => {
 
   it("agrupa leads que comparten teléfono aunque el nombre difiera", () => {
     const groups = findDuplicateGroups([
-      { id: "1", company_name: "Clínica Sonrisa", phone: "600123456", whatsapp: null, created_at: "2026-09-01T00:00:00Z" },
-      { id: "2", company_name: "CLINICA DENTAL SONRISA", phone: "+34 600 123 456", whatsapp: null, created_at: "2026-09-02T00:00:00Z" },
-      { id: "3", company_name: "Otra empresa", phone: "611111111", whatsapp: null, created_at: "2026-09-03T00:00:00Z" },
+      { id: "1", company_name: "Clínica Sonrisa", phone: "600123456", whatsapp: null, website: null, created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "CLINICA DENTAL SONRISA", phone: "+34 600 123 456", whatsapp: null, website: null, created_at: "2026-09-02T00:00:00Z" },
+      { id: "3", company_name: "Otra empresa", phone: "611111111", whatsapp: null, website: null, created_at: "2026-09-03T00:00:00Z" },
     ]);
     expect(groups).toHaveLength(1);
-    expect(groups[0].phone).toBe("600123456");
-    // El más antiguo primero (es el que se conserva)
+    expect(groups[0].key).toBe("600123456");
+    expect(groups[0].kind).toBe("phone");
+    // El más antiguo primero (es el que se conserva por defecto)
     expect(groups[0].leads.map((l) => l.id)).toEqual(["1", "2"]);
   });
 
   it("también mira el campo whatsapp", () => {
     const groups = findDuplicateGroups([
-      { id: "1", company_name: "A", phone: null, whatsapp: "600123456", created_at: "2026-09-01T00:00:00Z" },
-      { id: "2", company_name: "B", phone: "600123456", whatsapp: null, created_at: "2026-09-02T00:00:00Z" },
+      { id: "1", company_name: "A", phone: null, whatsapp: "600123456", website: null, created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "B", phone: "600123456", whatsapp: null, website: null, created_at: "2026-09-02T00:00:00Z" },
     ]);
     expect(groups).toHaveLength(1);
+  });
+
+  it("agrupa por web aunque no haya teléfono", () => {
+    const groups = findDuplicateGroups([
+      { id: "1", company_name: "Clínica Sonrisa", phone: null, whatsapp: null, website: "sonrisa.com", created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "Sonrisa Dental", phone: null, whatsapp: null, website: "https://www.sonrisa.com/", created_at: "2026-09-02T00:00:00Z" },
+      { id: "3", company_name: "Otra", phone: null, whatsapp: null, website: "otra.com", created_at: "2026-09-03T00:00:00Z" },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].kind).toBe("web");
+  });
+
+  it("no agrupa perfiles distintos de redes genéricas", () => {
+    const groups = findDuplicateGroups([
+      { id: "1", company_name: "A", phone: null, whatsapp: null, website: "facebook.com/negocio-a", created_at: "2026-09-01T00:00:00Z" },
+      { id: "2", company_name: "B", phone: null, whatsapp: null, website: "facebook.com/negocio-b", created_at: "2026-09-02T00:00:00Z" },
+    ]);
+    expect(groups).toHaveLength(0);
   });
 });

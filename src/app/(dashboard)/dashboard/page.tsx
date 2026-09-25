@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { formatEUR, relativeDayES } from "@/lib/utils/format";
 import { LEAD_STATUSES } from "@/lib/constants/crm";
 import { todayMadridISO } from "@/lib/utils/format";
+import { findDuplicateGroups } from "@/lib/utils/import";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -33,6 +34,17 @@ export default async function DashboardPage() {
   const overdueTasks = (tasks ?? []).filter((t) => t.due_date && t.due_date < today);
 
   const followUpsToday = leads.filter((l) => l.next_follow_up === today).slice(0, 8);
+  const dupGroups = findDuplicateGroups(
+    leads.map((l) => ({
+      id: l.id,
+      company_name: l.company_name,
+      phone: l.phone,
+      whatsapp: l.whatsapp,
+      website: l.website,
+      created_at: l.created_at,
+    })),
+  );
+  const dupCount = dupGroups.reduce((s, g) => s + g.leads.length - 1, 0);
 
   return (
     <div>
@@ -111,6 +123,22 @@ export default async function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {dupCount > 0 && (
+        <Card className="mt-4 border-amber-200 dark:border-amber-900">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                Posibles duplicados ({dupCount} en {dupGroups.length} grupos)
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Leads que comparten teléfono o web. Revisa cuál conservar de cada grupo.
+              </p>
+            </div>
+            <Link href="/leads#importar"><Button size="sm" variant="outline">Revisar</Button></Link>
+          </div>
+        </Card>
+      )}
 
       {overdueTasks.length > 0 && (
         <Card className="mt-4 border-red-200 dark:border-red-900">

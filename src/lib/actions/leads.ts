@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getUserRole } from "@/lib/supabase/server";
 import { leadSchema } from "@/lib/validations/lead";
 import { LEAD_STATUS_LABELS } from "@/lib/constants/crm";
-import { parseLeadsCSV, MAX_IMPORT_ROWS, phoneKeyVariants, findDuplicateGroups, type DuplicateGroup } from "@/lib/utils/import";
+import { parseLeadsCSV, MAX_IMPORT_ROWS, phoneKeyVariants, websiteKeyVariants, findDuplicateGroups, type DuplicateGroup } from "@/lib/utils/import";
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -158,7 +158,7 @@ export async function importLeadsFromCSV(
     const { supabase, user } = await requireUser();
     const { data: existing } = await supabase
       .from("leads")
-      .select("company_name, phone, whatsapp, email");
+      .select("company_name, phone, whatsapp, website, email");
 
     // Resolver columna Responsable (email) → assigned_to
     const { data: profiles } = await supabase.from("profiles").select("id, email");
@@ -167,11 +167,15 @@ export async function importLeadsFromCSV(
     );
     const rowErrors = [...errors];
 
-    // Teléfonos ya existentes (cualquier variante: con/sin 34, phone o whatsapp)
+    // Teléfonos y webs ya existentes (cualquier variante: con/sin 34, con/sin www)
     const usedPhones = new Set<string>();
+    const usedWebs = new Set<string>();
     for (const l of existing ?? []) {
       for (const v of [...phoneKeyVariants(l.phone), ...phoneKeyVariants(l.whatsapp)]) {
         usedPhones.add(v);
+      }
+      for (const v of websiteKeyVariants(l.website)) {
+        usedWebs.add(v);
       }
     }
     const usedCompanyEmail = new Set(
@@ -196,14 +200,17 @@ export async function importLeadsFromCSV(
         ...phoneKeyVariants(String(d.phone ?? "")),
         ...phoneKeyVariants(String(d.whatsapp ?? "")),
       ];
+      const rowWebs = websiteKeyVariants(String(d.website ?? ""));
       const phoneDup = rowPhones.some((v) => usedPhones.has(v));
+      const webDup = rowWebs.some((v) => usedWebs.has(v));
       const companyEmail = `${String(d.company_name ?? "").toLowerCase().trim()}|${String(d.email ?? "").toLowerCase().trim()}`;
       const companyDup = d.email ? usedCompanyEmail.has(companyEmail) : false;
-      if (phoneDup || companyDup) {
+      if (phoneDup || webDup || companyDup) {
         skipped++;
         continue;
       }
       for (const v of rowPhones) usedPhones.add(v);
+      for (const v of rowWebs) usedWebs.add(v);
       if (d.email) usedCompanyEmail.add(companyEmail);
       toInsert.push({ ...toDb(r.data), user_id: user.id });
     }
@@ -233,7 +240,7 @@ export async function getDuplicateGroups(): Promise<
     const { supabase } = await requireUser();
     const { data, error } = await supabase
       .from("leads")
-      .select("id, company_name, phone, whatsapp, created_at")
+      .select("id, company_name, phone, whatsapp, website, created_at")
       .order("created_at", { ascending: true });
     if (error) {
       console.error("[getDuplicateGroups]", error);
@@ -246,37 +253,55 @@ export async function getDuplicateGroups(): Promise<
   }
 }
 
-export async function deleteDuplicatePhones(): Promise<
+/**
+ * Elimina leads duplicados elegidos por el usuario.
+ * Seguridad: solo ids que pertenecen a un grupo real de duplicados, y nunca
+ * se puede vaciar un grupo entero (siempre queda al menos uno).
+ */
+export async function deleteDuplicateLeads(ids: unknown): Promise<
   { ok: true; removed: number } | { ok: false; error: string }
 > {
   try {
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 200) {
+      return { ok: false, error: "Selección no válida." };
+    }
+    if (!ids.every((id) => typeof id === "string")) {
+      return { ok: false, error: "Selección no válida." };
+    }
     const { supabase } = await requireUser();
     if ((await getUserRole()) !== "admin") {
       return { ok: false, error: "Solo un administrador puede eliminar duplicados." };
     }
     const { data, error } = await supabase
       .from("leads")
-      .select("id, company_name, phone, whatsapp, created_at")
+      .select("id, company_name, phone, whatsapp, website, created_at")
       .order("created_at", { ascending: true });
     if (error) {
-      console.error("[deleteDuplicatePhones]", error);
+      console.error("[deleteDuplicateLeads]", error);
       return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
     }
-    // De cada grupo se conserva el más antiguo (primero) y se eliminan los demás.
-    // Las actividades y tareas asociadas se eliminan en cascada.
-    const ids = findDuplicateGroups(data ?? []).flatMap((g) => g.leads.slice(1).map((l) => l.id));
-    if (ids.length === 0) return { ok: true, removed: 0 };
-    const { error: delError } = await supabase.from("leads").delete().in("id", ids);
+    const groups = findDuplicateGroups(data ?? []);
+    const groupedIds = new Set(groups.flatMap((g) => g.leads.map((l) => l.id)));
+    const toDelete = [...new Set(ids as string[])].filter((id) => groupedIds.has(id));
+    // Ningún grupo puede quedarse vacío
+    for (const g of groups) {
+      const remaining = g.leads.filter((l) => !toDelete.includes(l.id));
+      if (remaining.length === 0) {
+        return { ok: false, error: "Debes conservar al menos un lead de cada grupo." };
+      }
+    }
+    if (toDelete.length === 0) return { ok: true, removed: 0 };
+    const { error: delError } = await supabase.from("leads").delete().in("id", toDelete);
     if (delError) {
-      console.error("[deleteDuplicatePhones]", delError);
+      console.error("[deleteDuplicateLeads]", delError);
       return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
     }
     revalidatePath("/leads");
     revalidatePath("/dashboard");
     revalidatePath("/pipeline");
-    return { ok: true, removed: ids.length };
+    return { ok: true, removed: toDelete.length };
   } catch (e) {
-    console.error("[deleteDuplicatePhones]", e);
+    console.error("[deleteDuplicateLeads]", e);
     return { ok: false, error: "No se pudieron eliminar duplicados. Inténtalo de nuevo." };
   }
 }
